@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: yolo-detectAPI
+Version: 5.7.1
+Summary: Detect API
+Home-page: http://blogs.kd-mercury.xyz/
+Author: Da Kuang
+Author-email: dakuang2002@126.com
+License: GPL Licence
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: License :: OSI Approved :: GNU General Public License (GPL)
+Classifier: Development Status :: 3 - Alpha
+Requires-Python: >=3.7
+
+This is a API for yolov5 version7 detect.py, new-version 5.7.1 allow user set <conf_thres> and <iou_thres>
