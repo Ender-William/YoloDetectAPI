@@ -1,4 +1,4 @@
-#-*- coding:utf-8 -*-
+# -*- coding:utf-8 -*-
 import os
 import random
 import sys
@@ -53,8 +53,20 @@ class YoloOpt:
 
 
 class DetectAPI:
-    def __init__(self, weights, imgsz=640):
+    def __init__(self, weights, imgsz=640, conf_thres=None, iou_thres=None):
+        """
+        Init Detect API
+        Args:
+            weights: model
+            imgsz: default 640
+            conf_thres: 用于物体的识别率，object置信度阈值 默认0.25，大于此准确率才会显示识别结果
+            iou_thres: 用于去重，做nms的iou阈值 默认0.45，数值越小去重程度越高
+        """
         self.opt = YoloOpt(weights=weights, imgsz=imgsz)
+        if conf_thres is not None:
+            self.opt.conf_thres = conf_thres
+        if iou_thres is not None:
+            self.opt.iou_thres = iou_thres
         weights = self.opt.weights
         imgsz = self.opt.imgsz
 
@@ -73,7 +85,7 @@ class DetectAPI:
 
         # 不使用半精度
         if self.half:
-            self.model.half() # switch to FP16
+            self.model.half()  # switch to FP16
 
         # read names and colors
         self.names = self.model.module.names if hasattr(self.model, 'module') else self.model.names
@@ -88,7 +100,7 @@ class DetectAPI:
         # 直接从 source 加载数据
         dataset = LoadImages(source)
         # 源程序通过路径加载数据，现在 source 就是加载好的数据，因此 LoadImages 就要重写
-        bs = 1 # set batch size
+        bs = 1  # set batch size
 
         # 保存的路径
         vid_path, vid_writer = [None] * bs, [None] * bs
@@ -113,14 +125,15 @@ class DetectAPI:
 
                 # NMS
                 with dt[2]:
-                    pred = non_max_suppression(pred, self.opt.conf_thres, self.opt.iou_thres, self.opt.classes, self.opt.agnostic_nms, max_det=2)
+                    pred = non_max_suppression(pred, self.opt.conf_thres, self.opt.iou_thres, self.opt.classes,
+                                               self.opt.agnostic_nms, max_det=2)
 
                 # Process predictions
                 # 处理每一张图片
                 det = pred[0]  # API 一次只处理一张图片，因此不需要 for 循环
                 im0 = im0s.copy()  # copy 一个原图片的副本图片
                 result_txt = []  # 储存检测结果，每新检测出一个物品，长度就加一。
-                                 # 每一个元素是列表形式，储存着 类别，坐标，置信度
+                # 每一个元素是列表形式，储存着 类别，坐标，置信度
                 # 设置图片上绘制框的粗细，类别名称
                 annotator = Annotator(im0, line_width=3, example=str(self.names))
                 if len(det):
@@ -136,6 +149,7 @@ class DetectAPI:
                         annotator.box_label(xyxy, label, color=self.colors[int(cls)])
                 result.append((im0, result_txt))  # 对于每张图片，返回画完框的图片，以及该图片的标签列表。
             return result, self.names
+
 
 if __name__ == '__main__':
     cap = cv2.VideoCapture(0)

@@ -1,3 +1,6 @@
+
+
+
 # Introduction
 
 YoloV5 作为 YoloV4 之后的改进型，在算法上做出了优化，检测的性能得到了一定的提升。其特点之一就是权重文件非常的小，可以在一些配置更低的移动设备上运行，且提高速度的同时准确度更高。本次使用的是最新推出的 YoloV5 Version7 版本。
@@ -55,7 +58,7 @@ import torch
 
 if __name__ == '__main__':
     cap = cv2.VideoCapture(0)
-    a = yolo_detectAPI.DetectAPI(weights='last.pt')  # 你要使用的模型的路径
+    a = yolo_detectAPI.DetectAPI(weights='last.pt', conf_thres=0.5, iou_thres=0.5)  # 你要使用的模型的路径
     with torch.no_grad():
         while True:
             rec, img = cap.read()
@@ -65,7 +68,7 @@ if __name__ == '__main__':
             for cls, (x1, y1, x2, y2), conf in result[0][1]:
                 print(names[cls], x1, y1, x2, y2, conf)  # 识别物体种类、左上角x坐标、左上角y轴坐标、右下角x轴坐标、右下角y轴坐标，置信度
                 
-            cv2.imshow("vedio", img)
+            cv2.imshow("video", img)
 
             if cv2.waitKey(1) == ord('q'):
                 break
@@ -97,3 +100,12 @@ if __name__ == '__main__':
 https://github.com/ultralytics/yolov5/releases/tag/v7.0
 https://blog.csdn.net/weixin_51331359/article/details/126012620
 https://blog.csdn.net/CharmsLUO/article/details/123422822
+
+# Update Version 5.7.1 2023-03-29
+添加了 `conf_thres` 和 `iou_thres` 的设置方法，在初始化识别方法时可以添加。
+```python
+yolo_detectAPI.DetectAPI(weights='last.pt', conf_thres=0.5, iou_thres=0.5)
+```
+`iou_thres` 过大容易出现一个目标多个检测框；
+
+`iou_thres` 过小容易出现检测结果少的问题。
