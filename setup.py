@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='yolo_detectAPI',
-    version='5.7.1',
+    version='5.7.2',
     description='Detect API',
     long_description='This is a API for yolov5 version7 detect.py, new-version 5.7.1 allow user set <conf_thres> and '
                      '<iou_thres>',
