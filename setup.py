@@ -24,9 +24,10 @@ setup(
                       'ipython>=8.3.0', 'psutil>=5.9.4'],
     data_files=['export.py'],
     classifiers=[
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
         "License :: OSI Approved :: GNU General Public License (GPL)",
         "Development Status :: 3 - Alpha"
     ],

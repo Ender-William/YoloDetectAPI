@@ -27,8 +27,8 @@ from utils.torch_utils import select_device, smart_inference_mode, time_sync
 
 class YoloOpt:
     def __init__(self, weights='weights/last.pt',
-                 imgsz=(640, 640), conf_thres=0.25,
-                 iou_thres=0.45, device='cpu', view_img=False,
+                 imgsz=(640, 640), conf_thres=0.4,
+                 iou_thres=0.1, device='0', view_img=False,
                  classes=None, agnostic_nms=False,
                  augment=False, update=False, exist_ok=False,
                  project='/detect/result', name='result_exp',
@@ -53,7 +53,7 @@ class YoloOpt:
 
 
 class DetectAPI:
-    def __init__(self, weights, imgsz=640, conf_thres=None, iou_thres=None):
+    def __init__(self, weights, imgsz=(640,640), device=None, conf_thres=None, iou_thres=None):
         """
         Init Detect API
         Args:
@@ -72,12 +72,16 @@ class DetectAPI:
 
         # Initialize 初始化
         # 获取设备 CPU/CUDA
-        self.device = select_device(self.opt.device)
+        if device is None:
+            self.device = select_device(self.opt.device)
+        else:
+            self.device = select_device(device)        
         # 不使用半精度
         self.half = self.device.type != 'cpu'  # # FP16 supported on limited backends with CUDA
+        self.half = False
 
         # Load model 加载模型
-        self.model = DetectMultiBackend(weights, self.device, dnn=False)
+        self.model = DetectMultiBackend(weights, self.device, dnn=False, fp16=self.half)
         self.stride = self.model.stride
         self.names = self.model.names
         self.pt = self.model.pt
@@ -90,6 +94,9 @@ class DetectAPI:
         # read names and colors
         self.names = self.model.module.names if hasattr(self.model, 'module') else self.model.names
         self.colors = [[random.randint(0, 255) for _ in range(3)] for _ in self.names]
+        
+        self.visualize = False
+    
 
     def detect(self, source):
         # 输入 detect([img])
@@ -107,9 +114,10 @@ class DetectAPI:
 
         # Run inference
         result = []
-        if self.device.type != 'cpu':
-            self.model(torch.zeros(1, 3, self.imgsz, self.imgsz).to(self.device).type_as(
-                next(self.model.parameters())))  # run once
+        #if self.device.type != 'cpu':
+        #    self.model(torch.zeros(1, 3, self.imgsz, self.imgsz).to(self.device).type_as(
+        #        next(self.model.parameters())))  # run once
+        self.model.warmup(imgsz=(1 if self.pt or self.model.triton else bs, 3, *(640,640)))  # warmup
         dt, seen = (Profile(), Profile(), Profile()), 0
 
         for im, im0s in dataset:
@@ -120,40 +128,41 @@ class DetectAPI:
                 if len(im.shape) == 3:
                     im = im[None]  # expand for batch dim
 
-                # Inference
-                pred = self.model(im, augment=self.opt.augment)[0]
+            # Inference
+            with dt[1]:
+                self.visualize = increment_path(save_dir / Path(path).stem, mkdir=True) if self.visualize else False
+                pred = self.model(im, augment=self.opt.augment, visualize=self.visualize)
 
-                # NMS
-                with dt[2]:
-                    pred = non_max_suppression(pred, self.opt.conf_thres, self.opt.iou_thres, self.opt.classes,
+            # NMS
+            with dt[2]:
+                pred = non_max_suppression(pred, self.opt.conf_thres, self.opt.iou_thres, self.opt.classes,
                                                self.opt.agnostic_nms, max_det=2)
 
-                # Process predictions
-                # 处理每一张图片
-                det = pred[0]  # API 一次只处理一张图片，因此不需要 for 循环
-                im0 = im0s.copy()  # copy 一个原图片的副本图片
-                result_txt = []  # 储存检测结果，每新检测出一个物品，长度就加一。
-                # 每一个元素是列表形式，储存着 类别，坐标，置信度
-                # 设置图片上绘制框的粗细，类别名称
-                annotator = Annotator(im0, line_width=3, example=str(self.names))
-                if len(det):
-                    # Rescale boxes from img_size to im0 size
-                    # 映射预测信息到原图
-                    det[:, :4] = scale_boxes(im.shape[2:], det[:, :4], im0.shape).round()
-
-                    #
-                    for *xyxy, conf, cls in reversed(det):
-                        line = (int(cls.item()), [int(_.item()) for _ in xyxy], conf.item())  # label format
-                        result_txt.append(line)
-                        label = f'{self.names[int(cls)]} {conf:.2f}'
-                        annotator.box_label(xyxy, label, color=self.colors[int(cls)])
-                result.append((im0, result_txt))  # 对于每张图片，返回画完框的图片，以及该图片的标签列表。
-            return result, self.names
+            # Process predictions
+            # 处理每一张图片
+            det = pred[0]  # API 一次只处理一张图片，因此不需要 for 循环
+            im0 = im0s.copy()  # copy 一个原图片的副本图片
+            result_txt = []  # 储存检测结果，每新检测出一个物品，长度就加一。
+            # 每一个元素是列表形式，储存着 类别，坐标，置信度
+            # 设置图片上绘制框的粗细，类别名称
+            annotator = Annotator(im0, line_width=3, example=str(self.names))
+            if len(det):
+                # Rescale boxes from img_size to im0 size
+                # 映射预测信息到原图
+                det[:, :4] = scale_boxes(im.shape[2:], det[:, :4], im0.shape).round()
+                 #
+                for *xyxy, conf, cls in reversed(det):
+                    line = (int(cls.item()), [int(_.item()) for _ in xyxy], conf.item())  # abel format
+                    result_txt.append(line)
+                    label = f'{self.names[int(cls)]} {conf:.2f}'
+                    annotator.box_label(xyxy, label, color=self.colors[int(cls)])
+            result.append((im0, result_txt))  # 对于每张图片，返回画完框的图片，以及该图片的标签列表。
+        return result, self.names
 
 
 if __name__ == '__main__':
     cap = cv2.VideoCapture(0)
-    a = DetectAPI(weights='weights/last.pt')
+    a = DetectAPI(weights='weights/last.pt', device='0')
     with torch.no_grad():
         while True:
             rec, img = cap.read()
