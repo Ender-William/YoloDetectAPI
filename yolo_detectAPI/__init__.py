@@ -53,14 +53,17 @@ class YoloOpt:
 
 
 class DetectAPI:
-    def __init__(self, weights, imgsz=(640,640), device=None, conf_thres=None, iou_thres=None):
+    def __init__(self, weights:str, imgsz:tuple=(640,640), device:chr=None, 
+                 conf_thres:float=None, iou_thres:float=None, half:bool=False):
         """
         Init Detect API
         Args:
-            weights: model
-            imgsz: default 640
-            conf_thres: 用于物体的识别率，object置信度阈值 默认0.25，大于此准确率才会显示识别结果
-            iou_thres: 用于去重，做nms的iou阈值 默认0.45，数值越小去重程度越高
+            weights(str): model path
+            imgsz(tuple): default 640
+            device(chr): cpu or 0, 1, 2, etc. for cuda
+            conf_thres(float): 用于物体的识别率，object置信度阈值 默认0.25，大于此准确率才会显示识别结果
+            iou_thres(float): 用于去重，做nms的iou阈值 默认0.45，数值越小去重程度越高
+            half(bool): 使用半精度进行推理（选用 CPU 时不起效）
         """
         self.opt = YoloOpt(weights=weights, imgsz=imgsz)
         if conf_thres is not None:
@@ -77,8 +80,11 @@ class DetectAPI:
         else:
             self.device = select_device(device)        
         # 不使用半精度
-        self.half = self.device.type != 'cpu'  # # FP16 supported on limited backends with CUDA
-        self.half = False
+        # self.half = self.device.type != 'cpu'  # # FP16 supported on limited backends with CUDA
+        # self.half = False
+        
+        # 选择是否使用半精度
+        self.half = True if self.device.type != 'cpu' and half is True else False
 
         # Load model 加载模型
         self.model = DetectMultiBackend(weights, self.device, dnn=False, fp16=self.half)
@@ -130,7 +136,7 @@ class DetectAPI:
 
             # Inference
             with dt[1]:
-                self.visualize = increment_path(save_dir / Path(path).stem, mkdir=True) if self.visualize else False
+                # self.visualize = increment_path(save_dir / Path(path).stem, mkdir=True) if self.visualize else False
                 pred = self.model(im, augment=self.opt.augment, visualize=self.visualize)
 
             # NMS
@@ -159,23 +165,3 @@ class DetectAPI:
             result.append((im0, result_txt))  # 对于每张图片，返回画完框的图片，以及该图片的标签列表。
         return result, self.names
 
-
-if __name__ == '__main__':
-    cap = cv2.VideoCapture(0)
-    a = DetectAPI(weights='weights/last.pt', device='0')
-    with torch.no_grad():
-        while True:
-            rec, img = cap.read()
-            result, names = a.detect([img])
-            img = result[0][0]  # 每一帧图片的处理结果图片
-            # 每一帧图像的识别结果（可包含多个物体）
-            for cls, (x1, y1, x2, y2), conf in result[0][1]:
-                print(names[cls], x1, y1, x2, y2, conf)  # 识别物体种类、左上角x坐标、左上角y轴坐标、右下角x轴坐标、右下角y轴坐标，置信度
-                '''
-                cv2.rectangle(img,(x1,y1),(x2,y2),(0,255,0))
-                cv2.putText(img,names[cls],(x1,y1-20),cv2.FONT_HERSHEY_DUPLEX,1.5,(255,0,0))'''
-            print()  # 将每一帧的结果输出分开
-            cv2.imshow("vedio", img)
-
-            if cv2.waitKey(1) == ord('q'):
-                break

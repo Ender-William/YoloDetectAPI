@@ -31,10 +31,10 @@ GitHub 地址：[YOLOv5 🚀 是世界上最受欢迎的视觉 AI，代表 Ultra
 
 # Section 3 如何安装到 Python 环境
 
-从 `whl` 文件夹或者从`Release`下载 `yolo_detectAPI-5.7-py3-none-any.whl` ，在下载目录内进入 Terminal 并切换至你要安装的 Python 环境。输入下面的命令安装 Python 库。这里需要注意，Python 环境需要 3.8 及以上版本才能使用。
+从 `whl` 文件夹或者从`Release`下载 `yolo_detectAPI-5.7.1.1-py3-none-any.whl` ，在下载目录内进入 Terminal 并切换至你要安装的 Python 环境。输入下面的命令安装 Python 库。这里需要注意，Python 环境需要 3.8 及以上版本才能使用。
 
 ```shell
-pip install .\yolo_detectAPI-5.7-py3-none-any.whl
+pip install .\yolo_detectAPI-5.7.1.1-py3-none-any.whl
 ```
 
 这个库使用 CPU 执行程序，如果需要使用 GPU 执行程序请 clone 源码自行打包修改程序。
@@ -53,25 +53,45 @@ python setup.py sdist bdist_wheel
 
 ```python
 import cv2
-import yolo_detectAPI
 import torch
+import time
+
+from yolo_detectAPI import DetectAPI
+
 
 if __name__ == '__main__':
-    cap = cv2.VideoCapture(0)
-    a = yolo_detectAPI.DetectAPI(weights='last.pt', conf_thres=0.5, iou_thres=0.5)  # 你要使用的模型的路径
+    
+    camera_index = 0
+    capture = cv2.VideoCapture(camera_index)
+
+    yolo_api = DetectAPI(
+        weights='weights/best.pt', 
+        device='0', 
+        conf_thres=0.4, iou_thres=0.1,
+        half=False)
+    
     with torch.no_grad():
         while True:
-            rec, img = cap.read()
-            result, names = a.detect([img])
-            img = result[0][0]  # 每一帧图片的处理结果图片
+            ret, frame = capture.read()
+            if not ret:
+                continue
+            start_time = time.time()
+            
+            result, names = yolo_api.detect([frame])
+            drew_image = result[0][0]  # 每一帧图片的处理结果图片
             # 每一帧图像的识别结果（可包含多个物体）
             for cls, (x1, y1, x2, y2), conf in result[0][1]:
-                print(names[cls], x1, y1, x2, y2, conf)  # 识别物体种类、左上角x坐标、左上角y轴坐标、右下角x轴坐标、右下角y轴坐标，置信度
-                
-            cv2.imshow("video", img)
+                print(f"name: {names[cls]}, x1: {x1}, y1: {y1}, x2: {x2}, y2: {y2}, conf: {conf}")  # 识别物体种类、左上角x坐标、左上角y轴坐标、右下角x轴坐标、右下角y轴坐标，置信度
+                '''
+                cv2.rectangle(img,(x1,y1),(x2,y2),(0,255,0))
+                cv2.putText(img,names[cls],(x1,y1-20),cv2.FONT_HERSHEY_DUPLEX,1.5,(255,0,0))
+                '''
+            # print()  # 将每一帧的结果输出分开
+            cv2.imshow("drew_image", drew_image)
 
             if cv2.waitKey(1) == ord('q'):
                 break
+            print(f"Infer FPS: {1/(time.time() - start_time)}")
 ```
 
 
@@ -100,6 +120,9 @@ if __name__ == '__main__':
 https://github.com/ultralytics/yolov5/releases/tag/v7.0
 https://blog.csdn.net/weixin_51331359/article/details/126012620
 https://blog.csdn.net/CharmsLUO/article/details/123422822
+
+# Update Version 5.7.1.1 2024-03-02
+添加了 GPU 支持
 
 # Update Version 5.7.1 2023-03-29
 添加了 `conf_thres` 和 `iou_thres` 的设置方法，在初始化识别方法时可以添加。
